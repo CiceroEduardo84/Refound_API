@@ -1,7 +1,7 @@
 import { prisma } from "@/database/prisma";
 import { AppError } from "@/utils/AppError";
-import { query, Request, Response } from "express";
-import z, { number, string } from "zod";
+import { json, Request, Response } from "express";
+import z from "zod";
 
 const CategoryEnum = z.enum([
   "food",
@@ -88,6 +88,21 @@ class RefundsController {
         totalPages: totalPages > 0 ? totalPages : 1,
       },
     });
+  }
+
+  async show(request: Request, response: Response) {
+    const paramSchema = z.object({
+      id: z.string().uuid(),
+    });
+
+    const { id } = paramSchema.parse(request.params);
+
+    const refound = await prisma.refounds.findFirst({
+      where: { id },
+      include: { user: true },
+    });
+
+    response.json(refound);
   }
 }
 
