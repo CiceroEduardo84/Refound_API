@@ -1,7 +1,7 @@
 import { prisma } from "@/database/prisma";
 import { AppError } from "@/utils/AppError";
 import { query, Request, Response } from "express";
-import z, { string } from "zod";
+import z, { number, string } from "zod";
 
 const CategoryEnum = z.enum([
   "food",
@@ -43,11 +43,19 @@ class RefundsController {
   }
 
   async index(request: Request, response: Response) {
-    const queryScheme = z.object({ name: z.string().optional().default("") });
+    const queryScheme = z.object({
+      name: z.string().optional().default(""),
+      page: z.coerce.number().optional().default(1),
+      perPage: z.coerce.number().optional().default(10),
+    });
 
-    const { name } = queryScheme.parse(request.query);
+    const { name, page, perPage } = queryScheme.parse(request.query);
+
+    const skip = (page - 1) * perPage;
 
     const refounds = await prisma.refounds.findMany({
+      skip,
+      take: perPage,
       where: {
         user: {
           name: {
@@ -58,7 +66,28 @@ class RefundsController {
       orderBy: { createdAt: "desc" },
       include: { user: true },
     });
-    response.status(200).json({ Message: "OK" });
+
+    const totalRecords = await prisma.refounds.count({
+      where: {
+        user: {
+          name: {
+            contains: name.trim(),
+          },
+        },
+      },
+    });
+
+    const totalPages = Math.ceil(totalRecords / perPage);
+
+    response.status(200).json({
+      refounds,
+      pagination: {
+        page,
+        perPage,
+        totalRecords,
+        totalPages: totalPages > 0 ? totalPages : 1,
+      },
+    });
   }
 }
 
